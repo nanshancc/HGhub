@@ -2,6 +2,7 @@ name: iOS loopback build
 
 # 由 Codex 生成：在 macOS runner 上把 HGhubX 的 iOS 媒体层从 hg://localhost
 # 换成 127.0.0.1:17650 loopback HTTP（iPhone 没有 MSE，AVFoundation 不认自定义 scheme）。
+# 源码固定到 SRC_SHA；该提交不存在时自动退回默认分支。
 
 on:
   workflow_dispatch:
@@ -9,7 +10,7 @@ on:
 env:
   APPLE_DEVELOPMENT_TEAM: "ABCDE12345"
   SRC_REPO: https://github.com/zxsos/HGhubX.git
-  SRC_SHA: bebefb7a3385d8fde7918e6992692ec7b3b48489f
+  SRC_SHA: bebfb7a3385d8fde7918e6992692ec7b3b48489f
   APP_VERSION: "2.0.0-loopback"
 
 jobs:
@@ -18,13 +19,18 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 120
     steps:
-      - name: 拉取源码（钉住 commit，保证补丁可应用）
+      - name: 拉取源码
         run: |
           set -eux
           git clone "$SRC_REPO" app
           cd app
-          git checkout "$SRC_SHA"
-          git log --oneline -1
+          if git cat-file -e "${SRC_SHA}^{commit}" 2>/dev/null; then
+            git checkout "$SRC_SHA"
+          else
+            echo "::warning::commit $SRC_SHA 不存在，退回默认分支"
+          fi
+          git rev-parse HEAD
+          git log --oneline -3
 
       - name: 应用 loopback 补丁
         env:
